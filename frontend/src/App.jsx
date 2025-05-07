@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button, TextField, CircularProgress, Box, Typography } from "@mui/material";
 
 export default function BuzzWebApp() {
@@ -8,6 +8,64 @@ export default function BuzzWebApp() {
   const [translation, setTranslation] = useState("");
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("en");
+  const [recognition, setRecognition] = useState(null);
+  const [liveTranscribing, setLiveTranscribing] = useState(false);
+  const [interimTranscription, setInterimTranscription] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (recognition) recognition.stop();
+    };
+  }, [recognition]);
+
+  const startLiveTranscription = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition not supported in this browser.');
+      return;
+    }
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onresult = async (event) => {
+      let interim = '';
+      setInterimTranscription('');
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) {
+          const text = res[0].transcript;
+          setTranscription(prev => prev + text + ' ');
+          try {
+            const resp = await fetch('/api/translate-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey, text, language })
+            });
+            const data = await resp.json();
+            {
+              const raw = data.translation;
+              const cleaned = raw.replace(/^"""+/, '').replace(/"""+$/, '').trim();
+              setTranslation(prev => prev + cleaned + ' ');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        } else {
+          interim += res[0].transcript;
+        }
+      }
+      setInterimTranscription(interim);
+    };
+    rec.start();
+    setRecognition(rec);
+    setLiveTranscribing(true);
+  };
+
+  const stopLiveTranscription = () => {
+    if (recognition) recognition.stop();
+    setLiveTranscribing(false);
+  };
 
   const handleFileChange = (e) => {
     setAudioFile(e.target.files[0]);
@@ -44,7 +102,10 @@ export default function BuzzWebApp() {
   
       const data = await response.json();
       setTranscription(data.transcription);
-      setTranslation(data.translation);
+      // clean translation quotes
+      const raw = data.translation;
+      const cleaned = raw.replace(/^"""+/, '').replace(/"""+$/, '').trim();
+      setTranslation(cleaned);
     } catch (error) {
       console.error("Error during transcription:", error);
       alert(error.message || "An unexpected error occurred. Please try again.");
@@ -76,43 +137,55 @@ export default function BuzzWebApp() {
         <input type="file" accept="audio/*" hidden onChange={handleFileChange} />
       </Button>
       {audioFile && (
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          Uploaded File: {audioFile.name}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+          <Typography variant="body1">
+            Uploaded File: {audioFile.name}
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleTranscribe}
+            disabled={loading}
+            sx={{ ml: 2 }}
+          >
+            {loading ? <CircularProgress size={24} /> : "Transcribe"}
+          </Button>
+        </Box>
       )}
+      <Box sx={{ display: 'flex', gap: 2, my: 2 }}>
+        {!liveTranscribing ? (
+          <Button variant="outlined" onClick={startLiveTranscription} fullWidth>
+            Start Live Transcription
+          </Button>
+        ) : (
+          <Button variant="contained" color="secondary" onClick={stopLiveTranscription} fullWidth>
+            Stop Live Transcription
+          </Button>
+        )}
+      </Box>
+      <TextField
+        multiline
+        rows={4}
+        value={transcription + interimTranscription}
+        placeholder="Transcription will appear here..."
+        fullWidth
+        margin="normal"
+        InputProps={{ readOnly: true }}
+      />
       <TextField
         select
-        label="Select Language"
+        label="Translation Language"
         value={language}
         onChange={handleLanguageChange}
         fullWidth
         margin="normal"
         SelectProps={{ native: true }}
       >
-        <option value="en">English</option>
         <option value="es">Spanish</option>
         <option value="fr">French</option>
         <option value="ar">Arabic</option>
+        <option value="en">English</option>
       </TextField>
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleTranscribe}
-        disabled={loading}
-        fullWidth
-        sx={{ my: 2 }}
-      >
-        {loading ? <CircularProgress size={24} /> : "Transcribe"}
-      </Button>
-      <TextField
-        multiline
-        rows={4}
-        value={transcription}
-        placeholder="Transcription will appear here..."
-        fullWidth
-        margin="normal"
-        InputProps={{ readOnly: true }}
-      />
       <TextField
         multiline
         rows={4}
@@ -122,6 +195,13 @@ export default function BuzzWebApp() {
         margin="normal"
         InputProps={{ readOnly: true }}
       />
+      <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+        {(transcription || translation) && (
+          <Button variant="outlined" color="error" onClick={() => { setTranscription(''); setTranslation(''); }}>
+            Clear
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 }
