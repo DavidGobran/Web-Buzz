@@ -3,10 +3,14 @@ const multer = require("multer");
 const axios = require("axios");
 const fs = require("fs");
 const FormData = require("form-data");
+const cors = require('cors');
 
 const app = express();
 const port = 5050;
 const upload = multer({ dest: "uploads/" });
+
+// Enable CORS
+app.use(cors());
 
 app.use(express.json());
 
