@@ -1,0 +1,8 @@
+/.DS_Store
+/backend/uploads/
+node_modules/
+dist/
+.env
+*.log
+*.m4a
+/backend/node_modules/
