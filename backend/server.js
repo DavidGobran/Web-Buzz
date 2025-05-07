@@ -8,6 +8,8 @@ const app = express();
 const port = 5050;
 const upload = multer({ dest: "uploads/" });
 
+app.use(express.json());
+
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
     try {
         const apiKey = req.body.apiKey;
@@ -69,6 +71,34 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
     } catch (error) {
         console.error("Unexpected error in /transcribe endpoint:", error);
         res.status(500).json({ error: "Error processing transcription" });
+    }
+});
+
+// New endpoint for text translation from live transcription
+app.post("/translate-text", async (req, res) => {
+    try {
+        const { apiKey, text, language } = req.body;
+        if (!apiKey || !text) {
+            return res.status(400).json({ error: "API key and text required" });
+        }
+        const languageMap = { en: 'English', es: 'Spanish', fr: 'French', ar: 'Arabic', de: 'German', zh: 'Chinese', ja: 'Japanese' };
+        const targetLanguageName = languageMap[language] || language;
+        const translationResponse = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: "You are a helpful assistant that translates text to the specified language." },
+                    { role: "user", content: `Please translate the following text into ${targetLanguageName} and preserve formatting:\n\n"""${text}"""` }
+                ],
+            },
+            { headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" } }
+        );
+        const translation = translationResponse.data.choices[0].message.content;
+        res.json({ translation });
+    } catch (error) {
+        console.error("Error during translation API call:", error.response?.data || error.message);
+        res.status(error.response?.status || 500).json({ error: error.response?.data?.error || "Error during translation" });
     }
 });
 
