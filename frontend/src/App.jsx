@@ -37,7 +37,7 @@ export default function BuzzWebApp() {
           const text = res[0].transcript;
           setTranscription(prev => prev + text + ' ');
           try {
-            const resp = await fetch('/api/translate-text', {
+            const resp = await fetch('https://web-buzz-quzd.onrender.com/api/translate-text', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ apiKey, text, language })
@@ -90,7 +90,7 @@ export default function BuzzWebApp() {
     formData.append("language", language);
   
     try {
-      const response = await fetch("/api/transcribe", {
+      const response = await fetch("https://web-buzz-quzd.onrender.com/api/transcribe", {
         method: "POST",
         body: formData, // Use FormData directly
       });
