@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button, TextField, CircularProgress, Box, Typography } from "@mui/material";
 
 export default function BuzzWebApp() {
-  const [apiKey, setApiKey] = useState("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");
+  const [apiKey, setApiKey] = useState("");
   const [audioFile, setAudioFile] = useState(null);
   const [transcription, setTranscription] = useState("");
   const [translation, setTranslation] = useState("");
